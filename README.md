@@ -9,5 +9,6 @@ Usage:
 ```python3 get_modbases_from_fast5.py [fast5_basecalls.fast5]...```
 
 Output on stdout:
-```>[readid] [metadata]...
+```
+>[readid] [metadata]...
 pos1,pos2,...```
