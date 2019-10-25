@@ -1,13 +1,13 @@
-## modbase_utils
+# modbase_utils
 script(s) to handle guppy basecalls with modified bases
 
 
-# get_modbases_from_fast5.py
+## get_modbases_from_fast5.py
 Gives per read positions of '6mA 5mC' modifications with at least 0.5 caller confidence
 
 Usage:
-'''python3 get_modbases_from_fast5.py [fast5_basecalls.fast5]...'''
+**python3 get_modbases_from_fast5.py [fast5_basecalls.fast5]...**
 
 Output on stdout:
-'''>[readid] [metadata]...
-pos1,pos2,...'''
+**>[readid] [metadata]...
+pos1,pos2,...**
