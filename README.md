@@ -11,4 +11,5 @@ Usage:
 Output on stdout:
 ```
 >[readid] [metadata]...
-pos1,pos2,...```
+pos1,pos2,...
+```
