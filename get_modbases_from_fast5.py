@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import pathlib
 import argparse
 from ont_fast5_api.fast5_interface import get_fast5_file
 
@@ -14,27 +15,31 @@ def log(string):
 
 #####
 
-modbases = None
-get_all = False
+parser = argparse.ArgumentParser(description='Extract modified bases from guppy fast5 basecalls.\nThis only applies if --modbase was enabled for basecalling.',
+                                formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument("fast5dir", metavar='DIR', help="folder containing fast5 files with modbase basecalls")
+parser.add_argument("-t", "--threshold_min_mod", metavar='FLOAT', type=float, help="minimum caller confidence of modified bases that will be extracted", default=0.5)
+parser.add_argument("-m", "--modbases_string", metavar='STRING', help="modified base(s) to extract\nneed to be comma-separated strings with structure:  name,symbol,canonicalbase",
+                    action='append', default=["6mA,Y,A", "5mC,Z,C"])
+args = parser.parse_args()
 
-# add input parsing here
-
-mod_min_thresh = 0.5
-
-if modbases is None:
-    get_all = True
-
-f5files = sys.argv[1:]
-
+modbases = {}
+for mb in args.modbases_string:
+    mbname, mbsymbol, mbcanon = mb.split(',')
+    assert mbname not in modbases
+    modbases[mbname] = {'symbol': mbsymbol, 'canonical': mbcanon}
+    log(f'Modified base: {mbname} {mbsymbol} {mbcanon}')   
 
 #####
 # extract
 
 read_ids = set()
 
-for f5file in f5files:
+f5path = pathlib.Path(args.fast5dir)
 
-    with get_fast5_file(f5file, mode="r") as f5:
+for f5file in f5path.rglob('*.fast5'):
+
+    with get_fast5_file(str(f5file), mode="r") as f5:
 
         for read_id in f5.get_read_ids():
 
@@ -55,27 +60,23 @@ for f5file in f5files:
             table_path = '{}/BaseCalled_template/ModBaseProbs'.format(latest_basecall)
             metadata = read.get_analysis_attributes(table_path)
 
-            assert metadata['modified_base_long_names'] == '6mA 5mC'
-            assert metadata['output_alphabet'] == 'AYCZGT'
-
-            modA = []
-            modC = []
+            # gather data
+            modpos = {}
+            modcol = {}
+            for mb in modbases:
+                assert mb in metadata['modified_base_long_names']
+                assert modbases[mb]['symbol'] in metadata['output_alphabet']
+                modcol[mb] = metadata['output_alphabet'].index(modbases[mb]['symbol'])
+                modpos[mb] = []
 
             for pos0 in range(n_bases):
-                if mod_base_table[pos0, 1]/255 >= mod_min_thresh and fastq_seq[pos0] == 'A':
-                    # add 1-based position in read
-                    modA.append(pos0+1)
-                    # log(f'{fastq_seq[pos0]}  -  {mod_base_table[pos0, :]}')
-                if mod_base_table[pos0, 3]/255 >= mod_min_thresh and fastq_seq[pos0] == 'C':
-                    modC.append(pos0+1)
-                    # log(f'{fastq_seq[pos0]}  -  {mod_base_table[pos0, :]}')
+                for mb in modbases:
+                    if fastq_seq[pos0] == modbases[mb]['canonical'] and mod_base_table[pos0, modcol[mb]]/255 >= args.threshold_min_mod:
+                        # add 1-based position in read
+                        modpos[mb].append(pos0+1)
 
 
             # output
-            print(f'>{read_id}', metadata['modified_base_long_names'], 'mod_min_threshold:', mod_min_thresh)
-            print(f'6mA\t{",".join([str(p) for p in modA])}')
-            print(f'5mC\t{",".join([str(p) for p in modC])}')
-            
-            
-
-            
+            print(f'>{read_id}', ','.join(modbases.keys()), f'mod_min_threshold:{args.threshold_min_mod}')
+            for mb in modbases:
+                print(f'{mb}\t{",".join([str(p) for p in modpos[mb]])}')
